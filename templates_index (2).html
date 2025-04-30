@@ -1,0 +1,101 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Generator - Create Your Story</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header class="hero">
+        <h1>Book Generator</h1>
+        <p class="tagline">Craft your own novel in minutes! Create characters, design your story, and generate a book up to 400 pages.</p>
+        <div class="cta-buttons">
+            <a href="{{ url_for('add_character') }}" class="button primary">Start: Add Character</a>
+            <a href="{{ url_for('set_details') }}" class="button secondary">Set Book Details</a>
+        </div>
+    </header>
+    
+    <div class="container">
+        <nav class="main-nav">
+            <a href="{{ url_for('add_character') }}" class="nav-button">Add Character</a>
+            <a href="{{ url_for('set_details') }}" class="nav-button">Set Book Details</a>
+            <form method="post" action="{{ url_for('generate_plot') }}" style="display:inline;">
+                <button type="submit" class="nav-button">Generate Plot</button>
+            </form>
+            <form method="post" action="{{ url_for('preview_structure') }}" style="display:inline;">
+                <button type="submit" class="nav-button">Preview Structure</button>
+            </form>
+            <form method="post" action="{{ url_for('generate_book') }}" style="display:inline;">
+                <button type="submit" class="nav-button">Generate Book</button>
+            </form>
+        </nav>
+        
+        <section class="instructions">
+            <h2>How It Works</h2>
+            <p>Create your book in a few simple steps:</p>
+            <ol>
+                <li><strong>Add Characters</strong>: Create at least 2 characters with details like name, age, and motivations.</li>
+                <li><strong>Set Book Details</strong>: Choose genre, setting, tone, themes, and more (most fields required).</li>
+                <li><strong>Generate Plot</strong>: Build a story outline based on your inputs.</li>
+                <li><strong>Preview Structure</strong>: See a summary of your book’s chapters (optional).</li>
+                <li><strong>Generate Book</strong>: Create a full book (100–400 pages, 10–100 chapters), view it on-screen, and download as Markdown.</li>
+            </ol>
+        </section>
+        
+        <section class="output-section">
+            <h2>Output</h2>
+            <div class="output">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="flash {{ category }}">{{ message | safe }}</div>
+                        {% endfor %}
+                    {% else %}
+                        <p>Welcome! Start by adding a character or setting book details using the buttons above.</p>
+                    {% endif %}
+                {% endwith %}
+            </div>
+        </section>
+    </div>
+</body>
+</html>
